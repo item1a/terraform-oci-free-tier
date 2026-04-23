@@ -13,6 +13,29 @@ Reusable Terraform module for OCI Always Free tier infrastructure. Deploys ARM c
 - **Quota** — Free tier enforcement (4 ARM OCPUs, 2 AMD micros, 200GB storage)
 - **Cloudflare** (optional) — Load balancer, origin CA certificate, DNS records, strict SSL
 
+## Prerequisites
+
+- [Terraform](https://terraform.io) >= 1.10
+- OCI account (Pay As You Go — all resources stay within Always Free tier)
+- `~/.oci/config` configured for local OCI auth ([setup guide](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/apisigningkey.htm))
+- Cloudflare account with a domain (only if using `enable_cloudflare = true`)
+
+## Getting Started
+
+```bash
+# 1. In your project's terraform directory, create main.tf with the module call (see examples below)
+# 2. Configure providers (OCI + optionally Cloudflare)
+# 3. Create terraform.tfvars with your credentials
+# 4. Run:
+terraform init
+terraform plan    # review what will be created
+terraform apply   # deploy (confirm with 'yes')
+
+# 5. After deploy:
+terraform output                          # see IPs, DB info, SSH commands
+terraform output -raw ssh_commands        # get SSH commands
+```
+
 ## Usage
 
 ### Single instance (simple)
