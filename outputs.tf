@@ -1,0 +1,81 @@
+# --- Compute ---
+
+output "instance_public_ip" {
+  value = oci_core_instance.arm.public_ip
+}
+
+output "instance_private_ip" {
+  value = oci_core_instance.arm.private_ip
+}
+
+output "instance_id" {
+  value = oci_core_instance.arm.id
+}
+
+output "ssh_command" {
+  value = "ssh ${var.app_user}@${oci_core_instance.arm.public_ip}"
+}
+
+# --- Networking ---
+
+output "vcn_id" {
+  value = oci_core_vcn.vcn.id
+}
+
+output "public_subnet_id" {
+  value = oci_core_subnet.public.id
+}
+
+output "private_subnet_id" {
+  value = oci_core_subnet.private.id
+}
+
+# --- Load Balancer ---
+
+output "load_balancer_ip" {
+  value = var.enable_cloudflare ? [for ip in oci_load_balancer_load_balancer.lb[0].ip_address_details : ip.ip_address if ip.is_public][0] : null
+}
+
+# --- Databases ---
+
+output "database_ids" {
+  value = { for k, db in oci_database_autonomous_database.db : k => db.id }
+}
+
+output "database_admin_passwords" {
+  value     = { for k, pw in random_password.db_admin : k => pw.result }
+  sensitive = true
+}
+
+output "database_wallet_passwords" {
+  value     = { for k, pw in random_password.db_wallet : k => pw.result }
+  sensitive = true
+}
+
+output "database_connection_urls" {
+  value = { for k, db in oci_database_autonomous_database.db : k => db.connection_urls }
+}
+
+output "db_region_host" {
+  value = "adb.${var.region}.oraclecloud.com:1522"
+}
+
+# --- Vault ---
+
+output "vault_id" {
+  value = oci_kms_vault.vault.id
+}
+
+output "vault_crypto_endpoint" {
+  value = oci_kms_vault.vault.crypto_endpoint
+}
+
+output "vault_key_id" {
+  value = oci_kms_key.master_key.id
+}
+
+# --- Object Storage ---
+
+output "os_namespace" {
+  value = data.oci_objectstorage_namespace.ns.namespace
+}
