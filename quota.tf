@@ -1,5 +1,5 @@
 resource "oci_limits_quota" "free_tier" {
-  depends_on     = [oci_core_instance.arm]
+  depends_on     = [oci_core_instance.instance]
   compartment_id = var.tenancy_ocid
   name           = "${var.project_name}-free-tier-quota"
   description    = "Enforce free tier resource limits"

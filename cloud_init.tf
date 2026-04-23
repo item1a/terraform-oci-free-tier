@@ -1,19 +1,26 @@
 locals {
   cloud_init_scripts = {
-    for k, inst in var.instances : k => templatestring(local.cloud_init_template, {
-      app_user         = inst.app_user
-      app_port         = inst.app_port
-      workspace_path   = inst.workspace_path
-      block_volume_gb  = inst.block_volume_gb
-      extra_packages_cmds = join("\n", [
+    for k, inst in var.instances : k => join("", [
+      local.cloud_init_base,
+      join("\n", [
         for pkg in inst.extra_packages :
         "dnf module install -y ${pkg} 2>/dev/null || dnf install -y ${pkg}"
-      ])
-      extra_cloud_init = inst.extra_cloud_init
-    })
+      ]),
+      "\n",
+      inst.block_volume_gb > 0 ? templatestring(local.cloud_init_block_volume, {
+        workspace_path = inst.workspace_path
+        app_user       = inst.app_user
+      }) : "",
+      templatestring(local.cloud_init_service, {
+        app_user = inst.app_user
+        app_port = inst.app_port
+      }),
+      inst.extra_cloud_init != "" ? "\n# Extra cloud-init commands\n${inst.extra_cloud_init}\n" : "",
+      "\necho \"=== Provisioning complete ===\"\n",
+    ])
   }
 
-  cloud_init_template = <<-SCRIPT
+  cloud_init_base = <<-SCRIPT
 #!/bin/bash
 set -euo pipefail
 exec > /var/log/cloud-init-app.log 2>&1
@@ -22,7 +29,6 @@ echo "=== Starting provisioning ==="
 
 # App directory
 mkdir -p /opt/app
-chown -R $${app_user}:$${app_user} /opt/app
 
 # Base packages
 dnf install -y unzip git python3-oci-cli || {
@@ -31,10 +37,11 @@ dnf install -y unzip git python3-oci-cli || {
 }
 
 # Extra packages
-$${extra_packages_cmds}
+SCRIPT
+
+  cloud_init_block_volume = <<-SCRIPT
 
 # Mount block volume
-%{ if block_volume_gb > 0 }
 mkdir -p $${workspace_path}
 BLOCK_DEV=""
 for dev in /dev/oracleoci/oraclevdb /dev/sdb; do
@@ -54,7 +61,9 @@ if [ -n "$BLOCK_DEV" ]; then
 fi
 
 chown $${app_user}:$${app_user} $${workspace_path}
-%{ endif }
+SCRIPT
+
+  cloud_init_service = <<-SCRIPT
 
 # Firewall
 firewall-cmd --permanent --add-port=$${app_port}/tcp
@@ -91,10 +100,5 @@ PORT=$${app_port}
 ENV
 chown $${app_user}:$${app_user} /opt/app/.env
 chmod 600 /opt/app/.env
-
-# Extra cloud-init commands
-$${extra_cloud_init}
-
-echo "=== Provisioning complete ==="
 SCRIPT
 }
