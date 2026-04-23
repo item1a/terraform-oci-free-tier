@@ -21,7 +21,10 @@ resource "oci_identity_dynamic_group" "instance_group" {
   compartment_id = var.tenancy_ocid
   name           = "${var.project_name}-instance-group"
   description    = "Dynamic group for ${var.project_name} compute instances"
-  matching_rule  = "instance.id = '${oci_core_instance.arm.id}'"
+  matching_rule  = join(" || ", [
+    for k, inst in oci_core_instance.instance :
+    "instance.id = '${inst.id}'"
+  ])
 }
 
 # --- IAM Policies ---

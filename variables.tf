@@ -12,64 +12,36 @@ variable "region" {
 
 # --- Compute ---
 
+variable "instances" {
+  type = map(object({
+    ocpus            = number
+    memory_gb        = number
+    boot_volume_gb   = optional(number, 50)
+    block_volume_gb  = optional(number, 0)
+    app_port         = optional(number, 8080)
+    app_user         = optional(string, "opc")
+    workspace_path   = optional(string, "/var/workspace")
+    extra_packages   = optional(list(string), [])
+    extra_cloud_init = optional(string, "")
+    behind_lb        = optional(bool, true)
+  }))
+  default = {
+    app = {
+      ocpus     = 4
+      memory_gb = 24
+    }
+  }
+  description = "Map of ARM instances to create. Total OCPUs must not exceed 4, total memory must not exceed 24GB."
+}
+
 variable "arm_shape" {
   type    = string
   default = "VM.Standard.A1.Flex"
 }
 
-variable "arm_ocpus" {
-  type    = number
-  default = 4
-}
-
-variable "arm_memory_gb" {
-  type    = number
-  default = 24
-}
-
-variable "boot_volume_size_gb" {
-  type    = number
-  default = 50
-}
-
-variable "block_volume_size_gb" {
-  type        = number
-  default     = 50
-  description = "Block volume size in GB. Set to 0 to skip block volume creation."
-}
-
 variable "ssh_public_key" {
   type        = string
   description = "SSH public key content for instance access"
-}
-
-# --- Cloud Init ---
-
-variable "extra_packages" {
-  type        = list(string)
-  default     = []
-  description = "Additional dnf packages/modules to install (e.g., [\"nodejs:20\", \"python3\"])"
-}
-
-variable "extra_cloud_init" {
-  type        = string
-  default     = ""
-  description = "Additional shell commands to run at end of cloud-init"
-}
-
-variable "app_port" {
-  type    = number
-  default = 8080
-}
-
-variable "app_user" {
-  type    = string
-  default = "opc"
-}
-
-variable "workspace_path" {
-  type    = string
-  default = "/var/workspace"
 }
 
 # --- Databases ---
@@ -79,8 +51,8 @@ variable "databases" {
     display_name = string
     db_name      = string
   }))
-  default = {}
-  description = "Map of ATP databases to create. Key is used for resource naming. Example: { main = { display_name = \"MainDB\", db_name = \"MAINDB\" } }"
+  default     = {}
+  description = "Map of ATP databases to create. Key is used for resource naming."
 }
 
 # --- Object Storage ---

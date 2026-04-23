@@ -1,19 +1,21 @@
 # terraform-oci-free-tier
 
-Reusable Terraform module for OCI Always Free tier infrastructure. Deploys an ARM compute instance, up to 2 Oracle Autonomous Databases, OCI Vault KMS, and optionally a load balancer with Cloudflare SSL.
+Reusable Terraform module for OCI Always Free tier infrastructure. Deploys ARM compute instances, Oracle Autonomous Databases, OCI Vault KMS, and optionally a load balancer with Cloudflare SSL.
 
 ## What it creates
 
 - **Networking** — VCN, public/private subnets, internet + service gateways, route tables
-- **Compute** — ARM A1.Flex instance (4 OCPU / 24GB default) with cloud-init, optional block volume
+- **Compute** — 1+ ARM A1.Flex instances with per-instance cloud-init, optional block volumes
 - **Database** — 0-2 ATP free-tier instances (23ai) with auto-generated passwords stored in Vault
 - **Vault** — OCI Vault + AES-256 master key + dynamic group + IAM policies for instance principal auth
 - **Object Storage** — Optional backup bucket with prevent_destroy lifecycle
-- **Security** — Public/private security lists, SSH access, app port ingress
+- **Security** — Public/private security lists, SSH access, per-instance app port ingress
 - **Quota** — Free tier enforcement (4 ARM OCPUs, 2 AMD micros, 200GB storage)
 - **Cloudflare** (optional) — Load balancer, origin CA certificate, DNS records, strict SSL
 
 ## Usage
+
+### Single instance (simple)
 
 ```hcl
 module "infra" {
@@ -21,27 +23,80 @@ module "infra" {
 
   tenancy_ocid = var.TENANCY_OCID
   region       = var.REGION
+  ssh_public_key = file("./id_rsa.pub")
+  project_name   = "myapp"
 
-  # Compute
-  ssh_public_key   = file("./oci_public_key.pub")
-  project_name     = "myapp"
-  extra_packages   = ["nodejs:20"]
-  extra_cloud_init = "npm install -g some-cli || true"
+  instances = {
+    app = {
+      ocpus            = 4
+      memory_gb        = 24
+      block_volume_gb  = 50
+      extra_packages   = ["nodejs:20"]
+      extra_cloud_init = "npm install -g some-cli || true"
+    }
+  }
 
-  # Databases (0-2)
   databases = {
     main = { display_name = "MainDB", db_name = "MAINDB" }
   }
 
-  # Backup bucket
-  backup_bucket_name = "myapp-backups"
-
-  # Cloudflare (optional)
   enable_cloudflare    = true
   cloudflare_api_token = var.CLOUDFLARE_API_TOKEN
   cloudflare_zone_id   = var.CLOUDFLARE_ZONE_ID
   domain_name          = "example.com"
   dns_records          = ["example.com", "app"]
+}
+```
+
+### Multiple instances (split free tier)
+
+```hcl
+module "infra" {
+  source = "github.com/MMJLee/terraform-oci-free-tier"
+
+  tenancy_ocid   = var.TENANCY_OCID
+  region         = var.REGION
+  ssh_public_key = file("./id_rsa.pub")
+  project_name   = "platform"
+
+  instances = {
+    api = {
+      ocpus            = 2
+      memory_gb        = 12
+      block_volume_gb  = 50
+      app_port         = 8080
+      extra_packages   = ["nodejs:20"]
+      behind_lb        = true
+    }
+    worker = {
+      ocpus            = 1
+      memory_gb        = 6
+      block_volume_gb  = 50
+      app_port         = 9090
+      extra_packages   = ["python3"]
+      behind_lb        = false
+    }
+    agent = {
+      ocpus            = 1
+      memory_gb        = 6
+      app_port         = 8081
+      extra_cloud_init = "npm install -g @anthropic-ai/claude-code || true"
+      behind_lb        = false
+    }
+  }
+
+  databases = {
+    main  = { display_name = "MainDB",  db_name = "MAINDB" }
+    agent = { display_name = "AgentDB", db_name = "AGENTDB" }
+  }
+
+  backup_bucket_name = "platform-backups"
+
+  enable_cloudflare    = true
+  cloudflare_api_token = var.CLOUDFLARE_API_TOKEN
+  cloudflare_zone_id   = var.CLOUDFLARE_ZONE_ID
+  domain_name          = "example.com"
+  dns_records          = ["example.com", "api"]
 }
 ```
 
@@ -64,40 +119,31 @@ provider "cloudflare" {
 }
 ```
 
-## Inputs
+## Instance Configuration
 
-| Name | Type | Default | Description |
-|------|------|---------|-------------|
-| `tenancy_ocid` | string | required | OCI tenancy OCID |
-| `region` | string | required | OCI region |
-| `ssh_public_key` | string | required | SSH public key for instance access |
-| `project_name` | string | `"app"` | Used in resource display names |
-| `arm_shape` | string | `"VM.Standard.A1.Flex"` | Compute shape |
-| `arm_ocpus` | number | `4` | ARM OCPUs |
-| `arm_memory_gb` | number | `24` | ARM memory in GB |
-| `boot_volume_size_gb` | number | `50` | Boot volume size |
-| `block_volume_size_gb` | number | `50` | Block volume size (0 to skip) |
+Each instance in the `instances` map accepts:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `ocpus` | number | required | ARM OCPUs for this instance |
+| `memory_gb` | number | required | Memory in GB |
+| `boot_volume_gb` | number | `50` | Boot volume size |
+| `block_volume_gb` | number | `0` | Block volume size (0 = none) |
 | `app_port` | number | `8080` | Application port |
 | `app_user` | string | `"opc"` | OS user for the app |
 | `workspace_path` | string | `"/var/workspace"` | Block volume mount path |
 | `extra_packages` | list(string) | `[]` | Additional dnf packages |
 | `extra_cloud_init` | string | `""` | Additional cloud-init commands |
-| `databases` | map(object) | `{}` | ATP databases to create |
-| `backup_bucket_name` | string | `""` | Backup bucket name (empty to skip) |
-| `enable_cloudflare` | bool | `false` | Enable LB + Cloudflare SSL |
-| `cloudflare_api_token` | string | `""` | Cloudflare API token |
-| `cloudflare_zone_id` | string | `""` | Cloudflare zone ID |
-| `domain_name` | string | `""` | Domain for SSL cert |
-| `dns_records` | list(string) | `[]` | DNS A records to create |
+| `behind_lb` | bool | `true` | Include in load balancer backend |
+
+**Free tier limits:** Total OCPUs across all instances must not exceed 4. Total memory must not exceed 24GB.
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| `instance_public_ip` | ARM instance public IP |
-| `instance_private_ip` | ARM instance private IP |
-| `instance_id` | ARM instance OCID |
-| `ssh_command` | SSH command to connect |
+| `instances` | Map of instance IDs, public IPs, private IPs |
+| `ssh_commands` | Map of SSH commands per instance |
 | `vcn_id` | VCN OCID |
 | `public_subnet_id` | Public subnet OCID |
 | `private_subnet_id` | Private subnet OCID |
@@ -116,7 +162,7 @@ provider "cloudflare" {
 
 | Resource | Spec |
 |----------|------|
-| ARM Instance | VM.Standard.A1.Flex, 4 OCPU, 24GB |
+| ARM Instances | 4 OCPU / 24GB total (split across instances) |
 | Boot + Block Volume | 200GB total |
 | Load Balancer | 1 flexible, 10 Mbps |
 | Autonomous DB | 2 instances, 20GB each |

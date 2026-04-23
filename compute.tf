@@ -1,18 +1,19 @@
-resource "oci_core_instance" "arm" {
+resource "oci_core_instance" "instance" {
+  for_each            = var.instances
   compartment_id      = var.tenancy_ocid
   availability_domain = local.availability_domain
-  display_name        = "${var.project_name} ARM Instance"
+  display_name        = "${var.project_name}-${each.key}"
 
   shape = var.arm_shape
   shape_config {
-    ocpus         = var.arm_ocpus
-    memory_in_gbs = var.arm_memory_gb
+    ocpus         = each.value.ocpus
+    memory_in_gbs = each.value.memory_gb
   }
 
   source_details {
     source_type             = "image"
     source_id               = local.arm_image_id
-    boot_volume_size_in_gbs = var.boot_volume_size_gb
+    boot_volume_size_in_gbs = each.value.boot_volume_gb
   }
   preserve_boot_volume = false
 
@@ -36,23 +37,23 @@ resource "oci_core_instance" "arm" {
 
   metadata = {
     ssh_authorized_keys = trimspace(var.ssh_public_key)
-    user_data           = base64encode(local.cloud_init_script)
+    user_data           = base64encode(local.cloud_init_scripts[each.key])
   }
 }
 
-# --- Block Volume (optional) ---
+# --- Block Volumes (per-instance, optional) ---
 
 resource "oci_core_volume" "block" {
-  count               = var.block_volume_size_gb > 0 ? 1 : 0
+  for_each            = { for k, v in var.instances : k => v if v.block_volume_gb > 0 }
   compartment_id      = var.tenancy_ocid
-  display_name        = "${var.project_name} Block Volume"
+  display_name        = "${var.project_name}-${each.key}-block"
   availability_domain = local.availability_domain
-  size_in_gbs         = var.block_volume_size_gb
+  size_in_gbs         = each.value.block_volume_gb
 }
 
 resource "oci_core_volume_attachment" "block" {
-  count           = var.block_volume_size_gb > 0 ? 1 : 0
-  instance_id     = oci_core_instance.arm.id
-  volume_id       = oci_core_volume.block[0].id
+  for_each        = oci_core_volume.block
+  instance_id     = oci_core_instance.instance[each.key].id
+  volume_id       = each.value.id
   attachment_type = "paravirtualized"
 }

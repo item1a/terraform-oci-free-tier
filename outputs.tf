@@ -1,19 +1,20 @@
 # --- Compute ---
 
-output "instance_public_ip" {
-  value = oci_core_instance.arm.public_ip
+output "instances" {
+  value = {
+    for k, inst in oci_core_instance.instance : k => {
+      id         = inst.id
+      public_ip  = inst.public_ip
+      private_ip = inst.private_ip
+    }
+  }
 }
 
-output "instance_private_ip" {
-  value = oci_core_instance.arm.private_ip
-}
-
-output "instance_id" {
-  value = oci_core_instance.arm.id
-}
-
-output "ssh_command" {
-  value = "ssh ${var.app_user}@${oci_core_instance.arm.public_ip}"
+output "ssh_commands" {
+  value = {
+    for k, inst in oci_core_instance.instance : k =>
+    "ssh ${var.instances[k].app_user}@${inst.public_ip}"
+  }
 }
 
 # --- Networking ---

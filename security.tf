@@ -1,3 +1,8 @@
+locals {
+  # Collect unique app ports across all instances
+  app_ports = toset([for k, v in var.instances : v.app_port])
+}
+
 resource "oci_core_security_list" "public" {
   compartment_id = var.tenancy_ocid
   vcn_id         = oci_core_vcn.vcn.id
@@ -21,12 +26,15 @@ resource "oci_core_security_list" "public" {
     }
   }
 
-  ingress_security_rules {
-    protocol = "6"
-    source   = "10.0.0.0/16"
-    tcp_options {
-      min = var.app_port
-      max = var.app_port
+  dynamic "ingress_security_rules" {
+    for_each = local.app_ports
+    content {
+      protocol = "6"
+      source   = "10.0.0.0/16"
+      tcp_options {
+        min = ingress_security_rules.value
+        max = ingress_security_rules.value
+      }
     }
   }
 
@@ -41,12 +49,15 @@ resource "oci_core_security_list" "private" {
   vcn_id         = oci_core_vcn.vcn.id
   display_name   = "Private Security List"
 
-  ingress_security_rules {
-    protocol = "6"
-    source   = oci_core_subnet.public.cidr_block
-    tcp_options {
-      min = var.app_port
-      max = var.app_port
+  dynamic "ingress_security_rules" {
+    for_each = local.app_ports
+    content {
+      protocol = "6"
+      source   = oci_core_subnet.public.cidr_block
+      tcp_options {
+        min = ingress_security_rules.value
+        max = ingress_security_rules.value
+      }
     }
   }
 

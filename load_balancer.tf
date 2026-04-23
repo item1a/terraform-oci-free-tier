@@ -1,5 +1,9 @@
 # --- Load Balancer (only when Cloudflare is enabled) ---
 
+locals {
+  lb_instances = { for k, v in var.instances : k => v if v.behind_lb && var.enable_cloudflare }
+}
+
 resource "oci_load_balancer_load_balancer" "lb" {
   count          = var.enable_cloudflare ? 1 : 0
   compartment_id = var.tenancy_ocid
@@ -20,17 +24,17 @@ resource "oci_load_balancer_backend_set" "backend" {
   policy           = "ROUND_ROBIN"
   health_checker {
     protocol = "HTTP"
-    port     = var.app_port
+    port     = 0 # use backend port
     url_path = "/health"
   }
 }
 
-resource "oci_load_balancer_backend" "app" {
-  count            = var.enable_cloudflare ? 1 : 0
+resource "oci_load_balancer_backend" "instance" {
+  for_each         = local.lb_instances
   load_balancer_id = oci_load_balancer_load_balancer.lb[0].id
   backendset_name  = oci_load_balancer_backend_set.backend[0].name
-  ip_address       = oci_core_instance.arm.private_ip
-  port             = var.app_port
+  ip_address       = oci_core_instance.instance[each.key].private_ip
+  port             = each.value.app_port
 }
 
 resource "oci_load_balancer_listener" "https" {

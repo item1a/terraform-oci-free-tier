@@ -50,6 +50,4 @@ locals {
   all_services = local.filtered_services[0]
 
   arm_image_id = data.oci_core_images.arm_linux.images[0].id
-
-  db_keys = keys(var.databases)
 }
