@@ -8,7 +8,7 @@ Reusable Terraform module for OCI Always Free tier infrastructure. Deploys ARM c
 - **Compute** — 1+ ARM A1.Flex instances with per-instance cloud-init, optional block volumes
 - **Database** — 0-2 ATP free-tier instances (23ai) with auto-generated passwords stored in Vault
 - **Vault** — OCI Vault + AES-256 master key + dynamic group + IAM policies for instance principal auth
-- **Object Storage** — Optional backup bucket with prevent_destroy lifecycle
+- **Object Storage** — Optional Object Storage bucket with prevent_destroy lifecycle
 - **Security** — Public/private security lists, SSH access, per-instance app port ingress
 - **Quota** — Free tier enforcement (4 ARM OCPUs, 2 AMD micros, 200GB storage)
 - **Cloudflare** (optional) — Load balancer, origin CA certificate, DNS records, strict SSL
@@ -113,7 +113,7 @@ module "infra" {
     agent = { display_name = "AgentDB", db_name = "AGENTDB" }
   }
 
-  backup_bucket_name = "platform-backups"
+  bucket_name = "platform-backups"
 
   enable_cloudflare    = true
   cloudflare_api_token = var.CLOUDFLARE_API_TOKEN

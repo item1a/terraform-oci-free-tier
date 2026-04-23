@@ -51,12 +51,12 @@ resource "oci_identity_policy" "db_policy" {
 }
 
 resource "oci_identity_policy" "object_storage_policy" {
-  count          = var.backup_bucket_name != "" ? 1 : 0
+  count          = var.bucket_name != "" ? 1 : 0
   compartment_id = var.tenancy_ocid
   name           = "${var.project_name}-object-storage-policy"
-  description    = "Allow instances to read/write backup bucket"
+  description    = "Allow instances to read/write Object Storage bucket"
   statements = [
-    "Allow dynamic-group ${oci_identity_dynamic_group.instance_group.name} to manage objects in tenancy where target.bucket.name = '${var.backup_bucket_name}'",
+    "Allow dynamic-group ${oci_identity_dynamic_group.instance_group.name} to manage objects in tenancy where target.bucket.name = '${var.bucket_name}'",
     "Allow dynamic-group ${oci_identity_dynamic_group.instance_group.name} to read buckets in tenancy",
   ]
 }

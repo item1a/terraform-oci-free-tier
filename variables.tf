@@ -57,10 +57,10 @@ variable "databases" {
 
 # --- Object Storage ---
 
-variable "backup_bucket_name" {
+variable "bucket_name" {
   type        = string
   default     = ""
-  description = "Name for the backup bucket. Empty string skips creation."
+  description = "Name for the Object Storage bucket. Empty string skips creation."
 }
 
 # --- Cloudflare (optional) ---
