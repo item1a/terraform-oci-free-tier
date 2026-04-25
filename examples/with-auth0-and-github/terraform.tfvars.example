@@ -1,0 +1,46 @@
+# Copy to terraform.tfvars and fill in real values.
+
+# --- OCI Authentication ---
+TENANCY_OCID         = "ocid1.tenancy.oc1..aaaa..."
+USER_OCID            = "ocid1.user.oc1..aaaa..."
+FINGERPRINT          = "aa:bb:cc:dd:..."
+REGION               = "us-ashburn-1"
+IP_ADDRESS           = "your.public.ip/32"
+OCI_PRIVATE_KEY_PATH = "./oci_private_key.pem"
+SSH_PUBLIC_KEY_PATH  = "./oci_public_key.pub"
+SSH_PRIVATE_KEY_PATH = "./oci_private_key.pem"
+
+# --- Cloudflare ---
+CLOUDFLARE_API_TOKEN = "your-cloudflare-api-token"
+CLOUDFLARE_ZONE_ID   = "your-zone-id"
+DOMAIN_NAME          = "yourdomain.com"
+
+# --- GitHub (PAT with repo scope) ---
+GITHUB_OWNER = "your-github-username"
+GITHUB_REPO  = "your-repo"
+GITHUB_TOKEN = "ghp_xxxxxxxxxxxx"
+
+# --- Auth0 SPA app ---
+AUTH0_DOMAIN        = "yourtenant.us.auth0.com"
+AUTH0_CLIENT_ID     = "your-spa-client-id"
+AUTH0_CLIENT_SECRET = "your-spa-client-secret"
+
+# --- Auth0 M2M app (Auth0 Management API access) ---
+# Authorize for the Auth0 Management API with scopes: read:roles, create:roles,
+# update:roles, read:actions, create:actions, update:actions,
+# read:resource_servers, create:resource_servers, update:resource_servers,
+# read:role_members, create:role_members
+AUTH0_M2M_CLIENT_ID     = "your-m2m-client-id"
+AUTH0_M2M_CLIENT_SECRET = "your-m2m-client-secret"
+
+# Auth0 API identifier (audience claim) and JWT custom-claim namespace.
+AUTH0_API_AUDIENCE  = "https://api.yourdomain.com"
+AUTH0_JWT_NAMESPACE = "https://app.yourdomain.com"
+
+# Allowed callback URLs for the SPA.
+AUTH0_CALLBACK_URLS = ["https://app.yourdomain.com", "http://localhost:5173"]
+
+# Auto-assign admin role to one user. Find user_id at:
+# Auth0 Dashboard > User Management > Users > click user > user_id.
+# Leave empty to skip.
+AUTH0_ADMIN_USER_ID = ""

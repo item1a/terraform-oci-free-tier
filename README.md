@@ -123,6 +123,10 @@ module "infra" {
 }
 ```
 
+### With Auth0 + GitHub Actions secret sync
+
+For a complete, working configuration that wires the module together with Auth0 (SPA + M2M clients, roles, post-login action) and GitHub Actions secret sync, see [`examples/with-auth0-and-github/`](examples/with-auth0-and-github/).
+
 ## Providers
 
 The calling module must configure these providers:
