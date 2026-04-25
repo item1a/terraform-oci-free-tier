@@ -67,8 +67,14 @@ data "github_repository" "repo" {
 }
 
 resource "github_actions_secret" "secrets" {
-  for_each        = local.all_github_secrets
+  # local.all_github_secrets inherits sensitivity from var.github_secrets
+  # (declared sensitive = true), so its keys() are sensitive too. Terraform
+  # refuses sensitive for_each keys, which would otherwise break consumers
+  # with enable_github = false (empty map, but still sensitive type).
+  # Strip sensitivity from the iteration *keys* (secret names — not secret);
+  # values stay sensitive via lookup.
+  for_each        = nonsensitive(toset(keys(local.all_github_secrets)))
   repository      = data.github_repository.repo[0].name
   secret_name     = each.key
-  plaintext_value = each.value
+  plaintext_value = local.all_github_secrets[each.key]
 }
