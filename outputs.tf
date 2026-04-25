@@ -17,7 +17,7 @@ output "ssh_commands" {
   }
 }
 
-# --- Networking ---
+# --- Networking (consumed by addon modules: cloudflare, etc.) ---
 
 output "vcn_id" {
   value = oci_core_vcn.vcn.id
@@ -29,12 +29,6 @@ output "public_subnet_id" {
 
 output "private_subnet_id" {
   value = oci_core_subnet.private.id
-}
-
-# --- Load Balancer ---
-
-output "load_balancer_ip" {
-  value = var.enable_cloudflare ? [for ip in oci_load_balancer_load_balancer.lb[0].ip_address_details : ip.ip_address if ip.is_public][0] : null
 }
 
 # --- Databases ---
@@ -61,7 +55,7 @@ output "db_region_host" {
   value = "adb.${var.region}.oraclecloud.com:1522"
 }
 
-# --- Vault ---
+# --- Vault (consumed by github addon module) ---
 
 output "vault_id" {
   value = oci_kms_vault.vault.id
@@ -81,18 +75,6 @@ output "os_namespace" {
   value = data.oci_objectstorage_namespace.ns.namespace
 }
 
-# --- Auth0 (only populated when enable_auth0 = true) ---
-
-output "auth0_spa_client_id" {
-  value     = var.enable_auth0 ? auth0_client.spa[0].id : null
-  sensitive = true
-}
-
-output "auth0_m2m_client_id" {
-  value     = var.enable_auth0 ? auth0_client.m2m[0].id : null
-  sensitive = true
-}
-
-output "auth0_api_audience" {
-  value = var.enable_auth0 ? auth0_resource_server.api[0].identifier : null
+output "bucket_name" {
+  value = var.bucket_name != "" ? oci_objectstorage_bucket.bucket[0].name : null
 }

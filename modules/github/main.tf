@@ -1,10 +1,10 @@
-# --- GitHub Actions secret sync (optional, gated by enable_github) ---
+# --- GitHub Actions secret sync ---
 # Auto-syncs OCI auth, SSH keys, Cloudflare creds, Auth0 creds, and module
 # outputs (per-instance public IP as <NAME>_IP, per-database OCID as
 # <KEY>_DB_OCID, vault, OS namespace) into the GitHub repo's Actions secrets.
-# Caller can pass `github_secrets` for additional project-specific values.
+# Caller can pass `extra_secrets` for additional project-specific values.
 #
-# The caller still configures:
+# The caller configures the github provider:
 #   provider "github" {
 #     owner = var.GITHUB_OWNER
 #     token = var.GITHUB_TOKEN
@@ -12,7 +12,7 @@
 
 locals {
   # Conditionally-included credentials — only added if the input is set.
-  conditional_secrets = !var.enable_github ? {} : merge(
+  conditional_secrets = merge(
     var.oci_user_ocid != "" ? { OCI_USER_OCID = var.oci_user_ocid } : {},
     var.oci_fingerprint != "" ? { OCI_FINGERPRINT = var.oci_fingerprint } : {},
     var.oci_private_key != "" ? { OCI_PRIVATE_KEY = var.oci_private_key } : {},
@@ -22,13 +22,13 @@ locals {
     var.github_owner != "" ? { GH_OWNER = var.github_owner } : {},
     var.github_repo != "" ? { GH_REPO = var.github_repo } : {},
 
-    var.enable_cloudflare ? {
+    var.cloudflare_api_token != "" ? {
       CLOUDFLARE_API_TOKEN = var.cloudflare_api_token
       CLOUDFLARE_ZONE_ID   = var.cloudflare_zone_id
       DOMAIN_NAME          = var.domain_name
     } : {},
 
-    var.enable_auth0 ? {
+    var.auth0_domain != "" ? {
       AUTH0_DOMAIN            = var.auth0_domain
       AUTH0_CLIENT_ID         = var.auth0_client_id
       AUTH0_CLIENT_SECRET     = var.auth0_client_secret
@@ -38,43 +38,40 @@ locals {
     } : {},
   )
 
-  # Infrastructure-derived secrets — always included when enable_github = true.
+  # Infrastructure-derived secrets — always included.
   # Per-instance public IP becomes <UPPERCASE_KEY>_IP (e.g., APP_IP, WORKER_IP).
   # Per-database OCID becomes <UPPERCASE_KEY>_DB_OCID (e.g., MAIN_DB_OCID).
-  infra_secrets = !var.enable_github ? {} : merge(
+  infra_secrets = merge(
     {
       OCI_TENANCY_OCID      = var.tenancy_ocid
       OCI_REGION            = var.region
-      VAULT_OCID            = oci_kms_vault.vault.id
-      VAULT_KEY_ID          = oci_kms_key.master_key.id
-      VAULT_CRYPTO_ENDPOINT = oci_kms_vault.vault.crypto_endpoint
-      OCI_OS_NAMESPACE      = data.oci_objectstorage_namespace.ns.namespace
+      VAULT_OCID            = var.vault_ocid
+      VAULT_KEY_ID          = var.vault_key_id
+      VAULT_CRYPTO_ENDPOINT = var.vault_crypto_endpoint
+      OCI_OS_NAMESPACE      = var.os_namespace
     },
-    { for k, inst in oci_core_instance.instance : "${upper(k)}_IP" => inst.public_ip },
-    { for k, db in oci_database_autonomous_database.db : "${upper(k)}_DB_OCID" => db.id },
+    { for k, v in var.instance_public_ips : "${upper(k)}_IP" => v },
+    { for k, v in var.database_ids : "${upper(k)}_DB_OCID" => v },
   )
 
-  all_github_secrets = merge(
+  all_secrets = merge(
     local.infra_secrets,
     local.conditional_secrets,
-    var.enable_github ? var.github_secrets : {},
+    var.extra_secrets,
   )
 }
 
 data "github_repository" "repo" {
-  count     = var.enable_github ? 1 : 0
   full_name = "${var.github_owner}/${var.github_repo}"
 }
 
 resource "github_actions_secret" "secrets" {
-  # local.all_github_secrets inherits sensitivity from var.github_secrets
-  # (declared sensitive = true), so its keys() are sensitive too. Terraform
-  # refuses sensitive for_each keys, which would otherwise break consumers
-  # with enable_github = false (empty map, but still sensitive type).
-  # Strip sensitivity from the iteration *keys* (secret names — not secret);
-  # values stay sensitive via lookup.
-  for_each        = nonsensitive(toset(keys(local.all_github_secrets)))
-  repository      = data.github_repository.repo[0].name
+  # local.all_secrets inherits sensitivity from var.extra_secrets (declared
+  # sensitive = true). Strip sensitivity from the iteration *keys* (secret
+  # names — not the secret) so for_each works; values stay sensitive via
+  # lookup.
+  for_each        = nonsensitive(toset(keys(local.all_secrets)))
+  repository      = data.github_repository.repo.name
   secret_name     = each.key
-  plaintext_value = local.all_github_secrets[each.key]
+  plaintext_value = local.all_secrets[each.key]
 }

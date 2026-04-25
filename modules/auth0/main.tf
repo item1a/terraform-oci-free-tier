@@ -1,9 +1,6 @@
-# --- Auth0 (optional, gated by enable_auth0) ---
-# Creates SPA + M2M clients, API resource server with admin scope, admin/user
-# roles, a post-login action that injects email/name/roles into the JWT, and
-# optionally auto-assigns the admin role to one user.
+# --- Auth0: SPA + M2M clients, API resource server, roles, post-login JWT action ---
 #
-# The caller still configures:
+# The caller configures the auth0 provider:
 #   provider "auth0" {
 #     domain        = var.AUTH0_DOMAIN
 #     client_id     = var.AUTH0_M2M_CLIENT_ID
@@ -11,7 +8,6 @@
 #   }
 
 resource "auth0_client" "spa" {
-  count           = var.enable_auth0 ? 1 : 0
   name            = var.auth0_spa_name
   app_type        = "spa"
   is_first_party  = true
@@ -40,13 +36,11 @@ resource "auth0_client" "spa" {
 }
 
 resource "auth0_client_credentials" "spa_credentials" {
-  count                 = var.enable_auth0 ? 1 : 0
-  client_id             = auth0_client.spa[0].id
+  client_id             = auth0_client.spa.id
   authentication_method = "none"
 }
 
 resource "auth0_client" "m2m" {
-  count           = var.enable_auth0 ? 1 : 0
   name            = var.auth0_m2m_name
   app_type        = "non_interactive"
   is_first_party  = true
@@ -60,13 +54,11 @@ resource "auth0_client" "m2m" {
 }
 
 resource "auth0_client_credentials" "m2m_credentials" {
-  count                 = var.enable_auth0 ? 1 : 0
-  client_id             = auth0_client.m2m[0].id
+  client_id             = auth0_client.m2m.id
   authentication_method = "client_secret_post"
 }
 
 resource "auth0_resource_server" "api" {
-  count                                           = var.enable_auth0 ? 1 : 0
   name                                            = var.auth0_api_name
   identifier                                      = var.auth0_api_audience
   signing_alg                                     = "RS256"
@@ -77,8 +69,7 @@ resource "auth0_resource_server" "api" {
 }
 
 resource "auth0_resource_server_scopes" "api_scopes" {
-  count                      = var.enable_auth0 ? 1 : 0
-  resource_server_identifier = auth0_resource_server.api[0].identifier
+  resource_server_identifier = auth0_resource_server.api.identifier
 
   scopes {
     name        = "admin:access"
@@ -87,29 +78,25 @@ resource "auth0_resource_server_scopes" "api_scopes" {
 }
 
 resource "auth0_role" "admin" {
-  count       = var.enable_auth0 ? 1 : 0
   name        = "admin"
   description = "Platform administrator"
 }
 
 resource "auth0_role" "user" {
-  count       = var.enable_auth0 ? 1 : 0
   name        = "user"
   description = "Standard user"
 }
 
 resource "auth0_role_permissions" "admin_permissions" {
-  count   = var.enable_auth0 ? 1 : 0
-  role_id = auth0_role.admin[0].id
+  role_id = auth0_role.admin.id
 
   permissions {
-    resource_server_identifier = auth0_resource_server.api[0].identifier
+    resource_server_identifier = auth0_resource_server.api.identifier
     name                       = "admin:access"
   }
 }
 
 resource "auth0_action" "add_info_to_token" {
-  count   = var.enable_auth0 ? 1 : 0
   name    = "Add User Info to Tokens"
   runtime = "node18"
   deploy  = true
@@ -142,17 +129,16 @@ resource "auth0_action" "add_info_to_token" {
 }
 
 resource "auth0_trigger_actions" "post_login" {
-  count   = var.enable_auth0 ? 1 : 0
   trigger = "post-login"
 
   actions {
-    id           = auth0_action.add_info_to_token[0].id
-    display_name = auth0_action.add_info_to_token[0].name
+    id           = auth0_action.add_info_to_token.id
+    display_name = auth0_action.add_info_to_token.name
   }
 }
 
 resource "auth0_user_roles" "admin_assignment" {
-  count   = var.enable_auth0 && var.auth0_admin_user_id != "" ? 1 : 0
+  count   = var.auth0_admin_user_id != "" ? 1 : 0
   user_id = var.auth0_admin_user_id
-  roles   = [auth0_role.admin[0].id]
+  roles   = [auth0_role.admin.id]
 }
