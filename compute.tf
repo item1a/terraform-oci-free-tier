@@ -32,7 +32,21 @@ resource "oci_core_instance" "instance" {
   }
 
   lifecycle {
-    ignore_changes = [metadata, defined_tags, freeform_tags]
+    # source_details: the upstream OL9 ARM image gets refreshed by Oracle
+    # periodically (security patches, kernel updates). Without this ignore,
+    # plan diffs against running instances try to push the new source_id
+    # via UpdateInstance, which OCI evaluates as a boot-volume replacement
+    # — fails on transient quota at the 200 GB free-tier cap, and even if
+    # quota allowed would semantically require an instance recreate (the
+    # OCI API does not hot-swap boot images on running instances).
+    #
+    # Image drift is informational only: the running VM is happy on its
+    # original image; only TF state thinks it should be on the newer one.
+    # Ignoring this attribute removes the drift from plan output so
+    # downstream changes converge cleanly. Operators wanting the new
+    # image should rebuild the instance explicitly (terraform taint +
+    # apply, after backing up the boot volume).
+    ignore_changes = [metadata, defined_tags, freeform_tags, source_details]
   }
 
   metadata = {
